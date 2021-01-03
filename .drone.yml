@@ -2,6 +2,9 @@ kind: pipeline
 type: docker
 name: default
 
+trigger:
+  event:
+  - tag
 
 steps:
   - name: test
@@ -17,16 +20,23 @@ steps:
     image: golang:1.13
     commands:
       - go build -o build/drone-helm cmd/drone-helm/main.go
-  - name: publish_linux_amd64
-    image: plugins/docker
+  - name: docker-image
+    image: plugins/gcr
     settings:
-      auto_tag: true
-      username:
-        from_secret: docker_username
-      password:
-        from_secret: docker_password
-      repo:
-        from_secret: plugin_repo
-      dockerfile: Dockerfile
-    when:
-      event: [ tag, push ]
+      dockerfile: Dockerfile.zon
+      registry: eu.gcr.io
+      repo: zeitonline-210413/zon-drone-helm3
+      tags: ${DRONE_TAG}
+      environment:
+        VERSION: "${DRONE_TAG}"
+      json_key:
+        from_secret: GCP_SERVICE_ACCOUNT
+    purge: false
+    volumes:
+      - name: docker
+        path: /var/run/docker.sock
+
+volumes:
+- name: docker
+  host:
+    path: /var/run/docker.sock

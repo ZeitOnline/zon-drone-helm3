@@ -1,0 +1,30 @@
+FROM alpine as downloader
+
+ARG HELM_VERSION=3.4.2
+ENV HELM_URL=https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz
+
+ARG KUBECTL_VERSION=1.17.16
+ENV KUBECTL_URL=https://storage.googleapis.com/kubernetes-release/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl
+
+WORKDIR /tmp
+RUN true \
+  && wget -O helm.tgz "$HELM_URL" \
+  && tar xvpf helm.tgz linux-amd64/helm \
+  && mv linux-amd64/helm /usr/local/bin/helm \
+  && wget -O /usr/local/bin/kubectl "$KUBECTL_URL" \
+  && chmod +x /usr/local/bin/kubectl
+
+# ---
+
+FROM google/cloud-sdk:alpine
+
+COPY build/drone-helm /usr/bin/drone-helm.original
+COPY assets/kubeconfig.tpl /root/.kube/config.tpl
+
+COPY --from=downloader /usr/local/bin/helm /usr/bin/helm
+COPY --from=downloader /usr/local/bin/kubectl /usr/bin/kubectl
+
+COPY ./gcloud-auth-wrapper.sh /usr/bin/drone-helm
+RUN chmod +x /usr/bin/drone-helm
+
+CMD /usr/bin/drone-helm
